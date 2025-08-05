@@ -5,19 +5,20 @@ using BenchmarkDotNet.Detectors;
 using BenchmarkDotNet.Helpers;
 using BenchmarkDotNet.Portability;
 using JetBrains.Annotations;
-using Spectre.Console;
 
 namespace BenchmarkDotNet.Loggers
 {
     /// <summary>
-    /// A logger implementation that uses Spectre.Console for rich console output with colors, formatting,
-    /// and in-place updates for progress. This logger provides enhanced visual experience for benchmark results.
+    /// A logger implementation that uses ANSI escape codes for rich console output with colors, formatting,
+    /// and in-place updates for progress. This logger provides enhanced visual experience for benchmark results
+    /// similar to Spectre.Console but without external dependencies.
     ///
     /// Features:
     /// - Colorized output based on LogKind (Error = Red, Warning = Yellow, etc.)
     /// - Support for in-place updates to avoid line duplication during progress reporting
-    /// - Graceful fallback to standard console output when Spectre.Console features are unavailable
+    /// - Graceful fallback to standard console output when ANSI codes are unavailable
     /// - Unicode support detection and handling
+    /// - No external dependencies beyond standard .NET libraries
     ///
     /// Usage:
     /// var logger = new SpectreConsoleLogger();
@@ -29,14 +30,14 @@ namespace BenchmarkDotNet.Loggers
     {
         private readonly bool unicodeSupport;
         private readonly bool enableLiveUpdates;
-        private readonly Dictionary<LogKind, Style> styleScheme;
+        private readonly Dictionary<LogKind, AnsiStyle> styleScheme;
         private readonly object lockObject = new object();
 
         // Track if we're in a live update context to avoid conflicts
         private bool isInLiveUpdate = false;
         private string lastProgressMessage = string.Empty;
 
-        private static readonly bool SpectreConsoleSupported = CheckSpectreConsoleSupport();
+        private static readonly bool AnsiSupported = CheckAnsiSupport();
 
         /// <summary>
         /// Creates a new SpectreConsoleLogger instance with default settings.
@@ -50,12 +51,12 @@ namespace BenchmarkDotNet.Loggers
         /// </summary>
         /// <param name="unicodeSupport">Enable unicode character support</param>
         /// <param name="enableLiveUpdates">Enable in-place updates for progress messages</param>
-        /// <param name="styleScheme">Custom style scheme mapping LogKind to Spectre.Console styles</param>
+        /// <param name="styleScheme">Custom style scheme mapping LogKind to ANSI styles</param>
         [PublicAPI]
-        public SpectreConsoleLogger(bool unicodeSupport = false, bool enableLiveUpdates = true, Dictionary<LogKind, Style>? styleScheme = null)
+        public SpectreConsoleLogger(bool unicodeSupport = false, bool enableLiveUpdates = true, Dictionary<LogKind, AnsiStyle>? styleScheme = null)
         {
             this.unicodeSupport = unicodeSupport;
-            this.enableLiveUpdates = enableLiveUpdates && SpectreConsoleSupported;
+            this.enableLiveUpdates = enableLiveUpdates && AnsiSupported;
             this.styleScheme = styleScheme ?? CreateDefaultStyleScheme();
         }
 
@@ -93,14 +94,7 @@ namespace BenchmarkDotNet.Loggers
         {
             lock (lockObject)
             {
-                if (SpectreConsoleSupported)
-                {
-                    AnsiConsole.WriteLine();
-                }
-                else
-                {
-                    Console.WriteLine();
-                }
+                Console.WriteLine();
             }
         }
 
@@ -130,11 +124,13 @@ namespace BenchmarkDotNet.Loggers
         /// </summary>
         public void Flush()
         {
-            // Spectre.Console and Console.Out typically auto-flush, but we'll ensure completion
+            // Console typically auto-flushes, but we'll ensure completion of live updates
             lock (lockObject)
             {
                 if (isInLiveUpdate)
                 {
+                    // Complete the current line
+                    Console.WriteLine();
                     isInLiveUpdate = false;
                     lastProgressMessage = string.Empty;
                 }
@@ -148,9 +144,9 @@ namespace BenchmarkDotNet.Loggers
                 text = text.ToAscii();
             }
 
-            if (!SpectreConsoleSupported)
+            if (!AnsiSupported)
             {
-                // Fallback to console output without Spectre.Console
+                // Fallback to console output without ANSI codes
                 if (addNewLine)
                     Console.WriteLine(text);
                 else
@@ -161,24 +157,24 @@ namespace BenchmarkDotNet.Loggers
             try
             {
                 var style = GetStyle(logKind);
-                var escapedText = EscapeMarkup(text);
+                var styledText = style.Apply(text);
 
                 if (addNewLine)
                 {
-                    AnsiConsole.WriteLine(escapedText, style);
+                    Console.WriteLine(styledText);
                 }
                 else
                 {
-                    AnsiConsole.Write(escapedText, style);
+                    Console.Write(styledText);
                 }
             }
             catch (Exception)
             {
-                // Fallback to plain text if markup processing fails
+                // Fallback to plain text if styling fails
                 if (addNewLine)
-                    AnsiConsole.WriteLine(text);
+                    Console.WriteLine(text);
                 else
-                    AnsiConsole.Write(text);
+                    Console.Write(text);
             }
         }
 
@@ -186,20 +182,18 @@ namespace BenchmarkDotNet.Loggers
         {
             try
             {
-                if (SpectreConsoleSupported)
+                if (AnsiSupported)
                 {
                     // Clear the previous progress line if it exists
                     if (isInLiveUpdate && !string.IsNullOrEmpty(lastProgressMessage))
                     {
-                        // Move cursor up and clear the line
-                        AnsiConsole.Write("\r");
-                        AnsiConsole.Write(new string(' ', Math.Min(lastProgressMessage.Length, Console.WindowWidth - 1)));
-                        AnsiConsole.Write("\r");
+                        // Move cursor to beginning of line and clear it
+                        Console.Write("\r" + new string(' ', Math.Min(lastProgressMessage.Length, Console.WindowWidth - 1)) + "\r");
                     }
 
                     var style = GetStyle(logKind);
-                    var escapedText = EscapeMarkup(text);
-                    AnsiConsole.Write(escapedText, style);
+                    var styledText = style.Apply(text);
+                    Console.Write(styledText);
 
                     isInLiveUpdate = true;
                     lastProgressMessage = text;
@@ -227,64 +221,111 @@ namespace BenchmarkDotNet.Loggers
                    text.Contains("%");
         }
 
-        private Style GetStyle(LogKind logKind)
+        private AnsiStyle GetStyle(LogKind logKind)
         {
-            return styleScheme.TryGetValue(logKind, out var style) ? style : Style.Plain;
+            return styleScheme.TryGetValue(logKind, out var style) ? style : AnsiStyle.Default;
         }
 
-        private static string EscapeMarkup(string text)
+        private static Dictionary<LogKind, AnsiStyle> CreateDefaultStyleScheme()
         {
-            // Escape Spectre.Console markup characters to prevent interpretation
-            return text.Replace("[", "[[").Replace("]", "]]");
-        }
-
-        private static Dictionary<LogKind, Style> CreateDefaultStyleScheme()
-        {
-            return new Dictionary<LogKind, Style>
+            return new Dictionary<LogKind, AnsiStyle>
             {
-                { LogKind.Default, new Style(Color.Silver) },
-                { LogKind.Help, new Style(Color.Green) },
-                { LogKind.Header, new Style(Color.Magenta1, decoration: Decoration.Bold) },
-                { LogKind.Result, new Style(Color.DarkCyan, decoration: Decoration.Bold) },
-                { LogKind.Statistic, new Style(Color.Cyan1) },
-                { LogKind.Info, new Style(Color.Yellow3) },
-                { LogKind.Error, new Style(Color.Red, decoration: Decoration.Bold) },
-                { LogKind.Warning, new Style(Color.Yellow, decoration: Decoration.Bold) },
-                { LogKind.Hint, new Style(Color.DarkCyan) }
+                { LogKind.Default, new AnsiStyle(AnsiColor.Silver) },
+                { LogKind.Help, new AnsiStyle(AnsiColor.Green) },
+                { LogKind.Header, new AnsiStyle(AnsiColor.Magenta, bold: true) },
+                { LogKind.Result, new AnsiStyle(AnsiColor.DarkCyan, bold: true) },
+                { LogKind.Statistic, new AnsiStyle(AnsiColor.Cyan) },
+                { LogKind.Info, new AnsiStyle(AnsiColor.Yellow) },
+                { LogKind.Error, new AnsiStyle(AnsiColor.Red, bold: true) },
+                { LogKind.Warning, new AnsiStyle(AnsiColor.Yellow, bold: true) },
+                { LogKind.Hint, new AnsiStyle(AnsiColor.DarkCyan) }
             };
         }
 
         [PublicAPI]
-        [CLSCompliant(false)]
-        public static Dictionary<LogKind, Style> CreateGrayScheme()
+        public static Dictionary<LogKind, AnsiStyle> CreateGrayScheme()
         {
-            var styleScheme = new Dictionary<LogKind, Style>();
+            var styleScheme = new Dictionary<LogKind, AnsiStyle>();
             foreach (LogKind logKind in Enum.GetValues(typeof(LogKind)))
             {
-                styleScheme[logKind] = new Style(Color.Silver);
+                styleScheme[logKind] = new AnsiStyle(AnsiColor.Silver);
             }
             return styleScheme;
         }
 
-        private static bool CheckSpectreConsoleSupport()
+        private static bool CheckAnsiSupport()
         {
             try
             {
-                // Check if we can use Spectre.Console features
-                // Avoid using on platforms that don't support it well
+                // Check if we can use ANSI codes
+                // Avoid using on platforms that don't support them well
                 if (OsDetector.IsAndroid() || OsDetector.IsIOS() || RuntimeInformation.IsWasm || OsDetector.IsTvOS())
                 {
                     return false;
                 }
 
-                // Test basic Spectre.Console functionality
-                _ = AnsiConsole.Profile;
+                // Check if console supports colors (similar to ConsoleLogger logic)
                 return true;
             }
             catch (Exception)
             {
                 return false;
             }
+        }
+    }
+
+    /// <summary>
+    /// Represents ANSI escape sequence colors.
+    /// </summary>
+    public enum AnsiColor
+    {
+        Black = 30,
+        Red = 31,
+        Green = 32,
+        Yellow = 33,
+        Blue = 34,
+        Magenta = 35,
+        Cyan = 36,
+        Silver = 37,
+        DarkGray = 90,
+        BrightRed = 91,
+        BrightGreen = 92,
+        BrightYellow = 93,
+        BrightBlue = 94,
+        BrightMagenta = 95,
+        BrightCyan = 96,
+        White = 97,
+        DarkCyan = 36  // Alias for better compatibility with ConsoleLogger colors
+    }
+
+    /// <summary>
+    /// Represents an ANSI style with color and formatting options.
+    /// </summary>
+    public readonly struct AnsiStyle
+    {
+        public static readonly AnsiStyle Default = new AnsiStyle(AnsiColor.Silver);
+
+        private const string AnsiReset = "\u001b[0m";
+        private const string AnsiBold = "\u001b[1m";
+
+        public AnsiColor Color { get; }
+        public bool Bold { get; }
+
+        public AnsiStyle(AnsiColor color, bool bold = false)
+        {
+            Color = color;
+            Bold = bold;
+        }
+
+        public string Apply(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return text;
+
+            var colorCode = $"\u001b[{(int)Color}m";
+            var boldCode = Bold ? AnsiBold : string.Empty;
+
+            return $"{colorCode}{boldCode}{text}{AnsiReset}";
         }
     }
 }
