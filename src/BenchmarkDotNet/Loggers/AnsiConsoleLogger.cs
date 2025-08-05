@@ -187,8 +187,9 @@ namespace BenchmarkDotNet.Loggers
                     // Clear the previous progress line if it exists
                     if (isInLiveUpdate && !string.IsNullOrEmpty(lastProgressMessage))
                     {
-                        // Move cursor to beginning of line and clear it
-                        Console.Write("\r" + new string(' ', Math.Min(lastProgressMessage.Length, Console.WindowWidth - 1)) + "\r");
+                        // Use ANSI escape sequences to properly clear the current line
+                        // \x1b[2K clears the entire line, \x1b[1G moves cursor to column 1
+                        Console.Write("\x1b[2K\x1b[1G");
                     }
 
                     var style = GetStyle(logKind);
