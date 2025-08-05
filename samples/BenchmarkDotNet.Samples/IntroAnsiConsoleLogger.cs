@@ -14,7 +14,11 @@ namespace BenchmarkDotNet.Samples
     {
         private class BasicConfig : ManualConfig
         {
-            public BasicConfig() => AddLogger(new AnsiConsoleLogger());
+            public BasicConfig()
+            {
+                AddLogger(new AnsiConsoleLogger());
+                UnionRule = ConfigUnionRule.AlwaysUseLocal;
+            }
         }
 
         [Benchmark]

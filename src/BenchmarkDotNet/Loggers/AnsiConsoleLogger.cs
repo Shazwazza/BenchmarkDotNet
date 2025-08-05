@@ -1,10 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Detectors;
+using BenchmarkDotNet.Engines;
 using BenchmarkDotNet.Helpers;
 using BenchmarkDotNet.Portability;
 using JetBrains.Annotations;
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace BenchmarkDotNet.Loggers
 {
@@ -215,7 +216,12 @@ namespace BenchmarkDotNet.Loggers
         private bool ShouldUpdateInPlace(LogKind logKind, string text)
         {
             // Update in-place for statistics and progress-like messages
-            return logKind == LogKind.Statistic ||
+            return text.Contains(nameof(EngineEventSource.Tasks.WorkloadJitting)) ||
+                   text.Contains(nameof(EngineEventSource.Tasks.WorkloadWarmup)) ||
+                   text.Contains(nameof(EngineEventSource.Tasks.WorkloadPilot)) ||
+                   text.Contains(nameof(EngineEventSource.Tasks.WorkloadActual)) ||
+                   text.Contains(nameof(EngineEventSource.Tasks.OverheadWarmup)) ||
+                   text.Contains(nameof(EngineEventSource.Tasks.OverheadActual)) ||
                    text.Contains("...") ||
                    text.Contains("Progress") ||
                    text.Contains("Running") ||
