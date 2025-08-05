@@ -4,33 +4,33 @@ using Xunit;
 
 namespace BenchmarkDotNet.Tests.Loggers
 {
-    public class SpectreConsoleLoggerTests
+    public class AnsiConsoleLoggerTests
     {
         [Fact]
         public void Id_ReturnsCorrectValue()
         {
-            var logger = new SpectreConsoleLogger();
-            Assert.Equal(nameof(SpectreConsoleLogger), logger.Id);
+            var logger = new AnsiConsoleLogger();
+            Assert.Equal(nameof(AnsiConsoleLogger), logger.Id);
         }
 
         [Fact]
         public void Priority_DefaultInstance_ReturnsZero()
         {
-            var logger = new SpectreConsoleLogger(unicodeSupport: false);
+            var logger = new AnsiConsoleLogger(unicodeSupport: false);
             Assert.Equal(1, logger.Priority);
         }
 
         [Fact]
         public void Priority_UnicodeEnabled_ReturnsTwo()
         {
-            var logger = new SpectreConsoleLogger(unicodeSupport: true);
+            var logger = new AnsiConsoleLogger(unicodeSupport: true);
             Assert.Equal(2, logger.Priority);
         }
 
         [Fact]
         public void Write_EmptyText_DoesNotThrow()
         {
-            var logger = new SpectreConsoleLogger();
+            var logger = new AnsiConsoleLogger();
             logger.Write(LogKind.Default, string.Empty);
             logger.Write(LogKind.Default, null);
             // Test passes if no exception is thrown
@@ -39,7 +39,7 @@ namespace BenchmarkDotNet.Tests.Loggers
         [Fact]
         public void WriteLine_DoesNotThrow()
         {
-            var logger = new SpectreConsoleLogger();
+            var logger = new AnsiConsoleLogger();
             logger.WriteLine();
             // Test passes if no exception is thrown
         }
@@ -47,7 +47,7 @@ namespace BenchmarkDotNet.Tests.Loggers
         [Fact]
         public void WriteLine_WithText_DoesNotThrow()
         {
-            var logger = new SpectreConsoleLogger();
+            var logger = new AnsiConsoleLogger();
             logger.WriteLine(LogKind.Default, "Test message");
             logger.WriteLine(LogKind.Error, "Error message");
             logger.WriteLine(LogKind.Warning, "Warning message");
@@ -58,7 +58,7 @@ namespace BenchmarkDotNet.Tests.Loggers
         [Fact]
         public void Flush_DoesNotThrow()
         {
-            var logger = new SpectreConsoleLogger();
+            var logger = new AnsiConsoleLogger();
             logger.Flush();
             // Test passes if no exception is thrown
         }
@@ -66,7 +66,7 @@ namespace BenchmarkDotNet.Tests.Loggers
         [Fact]
         public void CreateGrayScheme_ContainsAllLogKinds()
         {
-            var scheme = SpectreConsoleLogger.CreateGrayScheme();
+            var scheme = AnsiConsoleLogger.CreateGrayScheme();
 
             foreach (LogKind logKind in Enum.GetValues(typeof(LogKind)))
             {
@@ -77,8 +77,8 @@ namespace BenchmarkDotNet.Tests.Loggers
         [Fact]
         public void Constructor_WithCustomScheme_DoesNotThrow()
         {
-            var customScheme = SpectreConsoleLogger.CreateGrayScheme();
-            var logger = new SpectreConsoleLogger(styleScheme: customScheme);
+            var customScheme = AnsiConsoleLogger.CreateGrayScheme();
+            var logger = new AnsiConsoleLogger(styleScheme: customScheme);
 
             // Test basic functionality
             logger.WriteLine(LogKind.Default, "Test with custom scheme");
@@ -88,7 +88,7 @@ namespace BenchmarkDotNet.Tests.Loggers
         [Fact]
         public void LiveUpdates_WithStatisticLogKind_DoesNotThrow()
         {
-            var logger = new SpectreConsoleLogger(enableLiveUpdates: true);
+            var logger = new AnsiConsoleLogger(enableLiveUpdates: true);
 
             // These should trigger in-place updates
             logger.WriteLine(LogKind.Statistic, "Progress... 50%");
@@ -101,7 +101,7 @@ namespace BenchmarkDotNet.Tests.Loggers
         [Fact]
         public void UnicodeSupport_WithSpecialCharacters_DoesNotThrow()
         {
-            var logger = new SpectreConsoleLogger(unicodeSupport: true);
+            var logger = new AnsiConsoleLogger(unicodeSupport: true);
 
             logger.WriteLine(LogKind.Default, "Test with μ character");
 

@@ -11,7 +11,7 @@ namespace BenchmarkDotNet.Loggers
     /// <summary>
     /// A logger implementation that uses ANSI escape codes for rich console output with colors, formatting,
     /// and in-place updates for progress. This logger provides enhanced visual experience for benchmark results
-    /// similar to Spectre.Console but without external dependencies.
+    /// using ANSI escape codes directly without external dependencies.
     ///
     /// Features:
     /// - Colorized output based on LogKind (Error = Red, Warning = Yellow, etc.)
@@ -21,12 +21,12 @@ namespace BenchmarkDotNet.Loggers
     /// - No external dependencies beyond standard .NET libraries
     ///
     /// Usage:
-    /// var logger = new SpectreConsoleLogger();
+    /// var logger = new AnsiConsoleLogger();
     /// // Or with custom options:
-    /// var logger = new SpectreConsoleLogger(unicodeSupport: true, enableLiveUpdates: true);
+    /// var logger = new AnsiConsoleLogger(unicodeSupport: true, enableLiveUpdates: true);
     /// </summary>
     [PublicAPI]
-    public sealed class SpectreConsoleLogger : ILogger
+    public sealed class AnsiConsoleLogger : ILogger
     {
         private readonly bool unicodeSupport;
         private readonly bool enableLiveUpdates;
@@ -40,20 +40,20 @@ namespace BenchmarkDotNet.Loggers
         private static readonly bool AnsiSupported = CheckAnsiSupport();
 
         /// <summary>
-        /// Creates a new SpectreConsoleLogger instance with default settings.
+        /// Creates a new AnsiConsoleLogger instance with default settings.
         /// </summary>
-        public SpectreConsoleLogger() : this(unicodeSupport: false, enableLiveUpdates: true, styleScheme: null)
+        public AnsiConsoleLogger() : this(unicodeSupport: false, enableLiveUpdates: true, styleScheme: null)
         {
         }
 
         /// <summary>
-        /// Creates a new SpectreConsoleLogger instance with custom settings.
+        /// Creates a new AnsiConsoleLogger instance with custom settings.
         /// </summary>
         /// <param name="unicodeSupport">Enable unicode character support</param>
         /// <param name="enableLiveUpdates">Enable in-place updates for progress messages</param>
         /// <param name="styleScheme">Custom style scheme mapping LogKind to ANSI styles</param>
         [PublicAPI]
-        public SpectreConsoleLogger(bool unicodeSupport = false, bool enableLiveUpdates = true, Dictionary<LogKind, AnsiStyle>? styleScheme = null)
+        public AnsiConsoleLogger(bool unicodeSupport = false, bool enableLiveUpdates = true, Dictionary<LogKind, AnsiStyle>? styleScheme = null)
         {
             this.unicodeSupport = unicodeSupport;
             this.enableLiveUpdates = enableLiveUpdates && AnsiSupported;
@@ -63,7 +63,7 @@ namespace BenchmarkDotNet.Loggers
         /// <summary>
         /// Unique identifier for this logger implementation.
         /// </summary>
-        public string Id => nameof(SpectreConsoleLogger);
+        public string Id => nameof(AnsiConsoleLogger);
 
         /// <summary>
         /// Priority of this logger. Higher priority loggers are preferred when multiple loggers with the same Id exist.
