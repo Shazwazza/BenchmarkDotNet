@@ -36,7 +36,6 @@ namespace BenchmarkDotNet.Loggers
 
         // Track if we're in a live update context to avoid conflicts
         private bool isInLiveUpdate = false;
-        private string lastProgressMessage = string.Empty;
 
         private static readonly bool AnsiSupported = CheckAnsiSupport();
 
@@ -133,7 +132,6 @@ namespace BenchmarkDotNet.Loggers
                     // Complete the current line
                     Console.WriteLine();
                     isInLiveUpdate = false;
-                    lastProgressMessage = string.Empty;
                 }
             }
         }
@@ -186,7 +184,7 @@ namespace BenchmarkDotNet.Loggers
                 if (AnsiSupported)
                 {
                     // Clear the previous progress line if it exists
-                    if (isInLiveUpdate && !string.IsNullOrEmpty(lastProgressMessage))
+                    if (isInLiveUpdate)
                     {
                         // Use ANSI escape sequences to properly clear the current line
                         // \x1b[2K clears the entire line, \x1b[1G moves cursor to column 1
@@ -198,7 +196,6 @@ namespace BenchmarkDotNet.Loggers
                     Console.Write(styledText);
 
                     isInLiveUpdate = true;
-                    lastProgressMessage = text;
                 }
                 else
                 {
