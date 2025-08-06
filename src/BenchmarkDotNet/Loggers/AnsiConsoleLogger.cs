@@ -34,9 +34,6 @@ namespace BenchmarkDotNet.Loggers
         private readonly Dictionary<LogKind, AnsiStyle> styleScheme;
         private readonly object lockObject = new object();
 
-        // Track if we're in a live update context to avoid conflicts
-        private bool isInLiveUpdate = false;
-
         private static readonly bool AnsiSupported = CheckAnsiSupport();
 
         /// <summary>
@@ -124,16 +121,7 @@ namespace BenchmarkDotNet.Loggers
         /// </summary>
         public void Flush()
         {
-            // Console typically auto-flushes, but we'll ensure completion of live updates
-            lock (lockObject)
-            {
-                if (isInLiveUpdate)
-                {
-                    // Complete the current line
-                    Console.WriteLine();
-                    isInLiveUpdate = false;
-                }
-            }
+            // Console typically auto-flushes, no additional action needed
         }
 
         private void WriteInternal(LogKind logKind, string text, bool addNewLine)
@@ -183,19 +171,13 @@ namespace BenchmarkDotNet.Loggers
             {
                 if (AnsiSupported)
                 {
-                    // Clear the previous progress line if it exists
-                    if (isInLiveUpdate)
-                    {
-                        // Use ANSI escape sequences to properly clear the current line
-                        // \x1b[2K clears the entire line, \x1b[1G moves cursor to column 1
-                        Console.Write("\x1b[2K\x1b[1G");
-                    }
+                    // Clear the current line and move cursor to beginning
+                    // \x1b[2K clears the entire line, \x1b[1G moves cursor to column 1
+                    Console.Write("\x1b[2K\x1b[1G");
 
                     var style = GetStyle(logKind);
                     var styledText = style.Apply(text);
                     Console.Write(styledText);
-
-                    isInLiveUpdate = true;
                 }
                 else
                 {
